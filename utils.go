@@ -6,25 +6,19 @@ import (
 
 var (
 	_ http.ResponseWriter = (*ResponseWriterWrapper)(nil)
+	_ http.Hijacker       = (*ResponseWriterWrapper)(nil)
 )
 
 type H map[string]interface{}
 
 type ResponseWriterWrapper struct {
-	writer http.ResponseWriter
-	code   int
-	ctx    *Context
-}
-
-func (w *ResponseWriterWrapper) Header() http.Header {
-	return w.writer.Header()
-}
-
-func (w *ResponseWriterWrapper) Write(b []byte) (int, error) {
-	return w.writer.Write(b)
+	http.ResponseWriter
+	http.Hijacker
+	code int
+	ctx  *Context
 }
 
 func (w *ResponseWriterWrapper) WriteHeader(code int) {
 	w.code = code
-	w.writer.WriteHeader(code)
+	w.ResponseWriter.WriteHeader(code)
 }

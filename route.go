@@ -29,8 +29,11 @@ func NewRouteGroup() *RouteGroup {
 func (rg *RouteGroup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	begin := time.Now()
 	ww := &ResponseWriterWrapper{
-		writer: w,
-		code:   200,
+		ResponseWriter: w,
+		code:           200,
+	}
+	if hj, ok := w.(http.Hijacker); ok {
+		ww.Hijacker = hj
 	}
 	ctx := newContext(ww, r)
 	ww.ctx = ctx
