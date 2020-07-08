@@ -25,7 +25,7 @@ func newContext(w http.ResponseWriter, r *http.Request) *Context {
 	}
 }
 
-func (c *Context) json(code int, val H, indented bool) {
+func (c *Context) json(code int, val interface{}, indented bool) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	if indented {
@@ -49,11 +49,11 @@ func (c *Context) BindJSON(obj interface{}) error {
 	return dec.Decode(obj)
 }
 
-func (c *Context) JSON(code int, val H) {
+func (c *Context) JSON(code int, val interface{}) {
 	c.json(code, val, false)
 }
 
-func (c *Context) IndentedJSON(code int, val H) {
+func (c *Context) IndentedJSON(code int, val interface{}) {
 	c.json(code, val, true)
 }
 
