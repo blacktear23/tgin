@@ -100,3 +100,11 @@ func (c *Context) Get(key string) (interface{}, bool) {
 	obj, have := c.values[key]
 	return obj, have
 }
+
+func (c *Context) Header(key, value string) {
+	if value == "" {
+		c.Writer.Header().Del(key)
+		return
+	}
+	c.Writer.Header().Set(key, value)
+}
