@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 )
+
+const formMaxMemory = 32 << 20 // 32 MB
 
 type Context struct {
 	Method  string
@@ -66,12 +69,25 @@ func (c *Context) Text(code int, message string) {
 	w.Write([]byte(message))
 }
 
+func (c *Context) String(code int, format string, values ...interface{}) {
+	body := fmt.Sprintf(format, values...)
+	c.Text(code, body)
+}
+
 func (c *Context) GetQuery(key string) (string, bool) {
 	ret := c.Request.URL.Query().Get(key)
 	if ret == "" {
 		return ret, false
 	}
 	return ret, true
+}
+
+func (c *Context) GetQueryArray(key string) ([]string, bool) {
+	val := c.Request.URL.Query()[key]
+	if len(val) == 0 {
+		return []string{}, false
+	}
+	return val, true
 }
 
 func (c *Context) GetHeader(key string) string {
@@ -107,4 +123,32 @@ func (c *Context) Header(key, value string) {
 		return
 	}
 	c.Writer.Header().Set(key, value)
+}
+
+func (c *Context) Redirect(code int, location string) {
+	http.Redirect(c.Writer, c.Request, location, code)
+}
+
+func (c *Context) PostForm(key string) string {
+	ret := c.PostFormArray(key)
+	if len(ret) == 0 {
+		return ""
+	}
+	return ret[0]
+}
+
+func (c *Context) PostFormArray(key string) []string {
+	if c.Request.Form == nil {
+		c.Request.ParseMultipartForm(formMaxMemory)
+	}
+	vals := c.Request.Form[key]
+	if len(vals) == 0 {
+		return []string{}
+	}
+	return vals
+}
+
+func (c *Context) FormFile(key string) (*multipart.FileHeader, error) {
+	_, header, err := c.Request.FormFile(key)
+	return header, err
 }
