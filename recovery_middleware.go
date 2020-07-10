@@ -17,7 +17,7 @@ var (
 	slash = []byte("/")
 )
 
-func RecoveryMiddle(c *Context) {
+func RecoveryMiddleware(c *Context) {
 	defer handlePanic(c)
 	c.Next()
 }

@@ -67,6 +67,7 @@ func TestUseMiddlewareWithNext(t *testing.T) {
 	r := NewRouteGroup()
 	middle1Run := 0
 	middle2Run := 0
+	middle3Run := 0
 	serveRun := 0
 	r.Use(func(c *Context) {
 		c.Next()
@@ -75,6 +76,9 @@ func TestUseMiddlewareWithNext(t *testing.T) {
 	r.Use(func(c *Context) {
 		c.Next()
 		middle2Run++
+	})
+	r.Use(func(c *Context) {
+		middle3Run++
 	})
 	r.Get("/", func(c *Context) {
 		serveRun++
@@ -84,6 +88,7 @@ func TestUseMiddlewareWithNext(t *testing.T) {
 	assertEqual(t, 200, resp.StatusCode, "Status Code Error")
 	assertEqual(t, 1, middle1Run, "Middle 1 run error")
 	assertEqual(t, 1, middle2Run, "Middle 2 run error")
+	assertEqual(t, 1, middle3Run, "Middle 2 run error")
 	assertEqual(t, 1, serveRun, "Serve run error")
 }
 
@@ -91,6 +96,7 @@ func TestUseMiddlewareWithNextInAbort(t *testing.T) {
 	r := NewRouteGroup()
 	middle1Run := 0
 	middle2Run := 0
+	middle3Run := 0
 	serveRun := 0
 	r.Use(func(c *Context) {
 		c.Next()
@@ -100,6 +106,9 @@ func TestUseMiddlewareWithNextInAbort(t *testing.T) {
 		c.Abort()
 		middle2Run++
 	})
+	r.Use(func(c *Context) {
+		middle3Run++
+	})
 	r.Get("/", func(c *Context) {
 		serveRun++
 		c.String(200, "OK")
@@ -108,5 +117,6 @@ func TestUseMiddlewareWithNextInAbort(t *testing.T) {
 	assertEqual(t, 200, resp.StatusCode, "Status Code Error")
 	assertEqual(t, 1, middle1Run)
 	assertEqual(t, 1, middle2Run)
+	assertEqual(t, 0, middle3Run)
 	assertEqual(t, 0, serveRun)
 }

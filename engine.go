@@ -17,7 +17,7 @@ func New() *Engine {
 func Default() *Engine {
 	e := New()
 	e.Use(LoggerMiddleware)
-	e.Use(RecoveryMiddle)
+	e.Use(RecoveryMiddleware)
 	return e
 }
 
