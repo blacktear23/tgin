@@ -1,9 +1,7 @@
 package tgin
 
 import (
-	"log"
 	"net/http"
-	"time"
 )
 
 var (
@@ -27,7 +25,6 @@ func NewRouteGroup() *RouteGroup {
 }
 
 func (rg *RouteGroup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	begin := time.Now()
 	ww := &ResponseWriterWrapper{
 		ResponseWriter: w,
 		code:           200,
@@ -37,19 +34,12 @@ func (rg *RouteGroup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := newContext(ww, r)
 	ww.ctx = ctx
-	returned := false
-	for _, middleware := range rg.middlewares {
-		middleware(ctx)
-		if ctx.aborted {
-			returned = true
-			break
-		}
-	}
-	if !returned {
+	ctx.middlewares = rg.middlewares
+	ctx.mux = rg.mux
+	ctx.Next()
+	if !ctx.aborted && !ctx.served {
 		rg.mux.ServeHTTP(ww, r)
 	}
-	processTime := time.Now().Sub(begin).String()
-	log.Printf("[Web] %d | %10s | %20s | %4s %s", ww.code, processTime, r.RemoteAddr, r.Method, r.URL.Path)
 }
 
 func (rg *RouteGroup) getPath(path string) string {

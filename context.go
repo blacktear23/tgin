@@ -11,20 +11,27 @@ import (
 const formMaxMemory = 32 << 20 // 32 MB
 
 type Context struct {
-	Method  string
-	Request *http.Request
-	Writer  http.ResponseWriter
-	aborted bool
-	values  map[string]interface{}
+	Method      string
+	Request     *http.Request
+	Writer      http.ResponseWriter
+	aborted     bool
+	served      bool
+	values      map[string]interface{}
+	middlewares []RouteHandler
+	index       int
+	mux         *http.ServeMux
 }
 
 func newContext(w http.ResponseWriter, r *http.Request) *Context {
 	return &Context{
-		Method:  r.Method,
-		Request: r,
-		Writer:  w,
-		aborted: false,
-		values:  make(map[string]interface{}),
+		Method:      r.Method,
+		Request:     r,
+		Writer:      w,
+		aborted:     false,
+		served:      false,
+		index:       0,
+		middlewares: nil,
+		values:      make(map[string]interface{}),
 	}
 }
 
@@ -151,4 +158,24 @@ func (c *Context) PostFormArray(key string) []string {
 func (c *Context) FormFile(key string) (*multipart.FileHeader, error) {
 	_, header, err := c.Request.FormFile(key)
 	return header, err
+}
+
+func (c *Context) Next() {
+	numMw := len(c.middlewares)
+	if c.index < numMw {
+		for c.index < numMw {
+			m := c.middlewares[c.index]
+			c.index++
+			m(c)
+			if c.aborted || c.served {
+				break
+			}
+		}
+	} else {
+		// Middleware execute all We should serve it
+		if !c.served {
+			c.served = true
+			c.mux.ServeHTTP(c.Writer, c.Request)
+		}
+	}
 }

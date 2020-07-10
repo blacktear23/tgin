@@ -14,6 +14,13 @@ func New() *Engine {
 	}
 }
 
+func Default() *Engine {
+	e := New()
+	e.Use(LoggerMiddleware)
+	e.Use(RecoveryMiddle)
+	return e
+}
+
 func (e *Engine) Run(addr string) error {
 	server := &http.Server{
 		Addr:           addr,

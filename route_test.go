@@ -27,12 +27,12 @@ func TestGetHandler(t *testing.T) {
 		c.String(200, "Hello World")
 	})
 	resp := processRequest(r, "GET", "/hello")
-	AssertEqual(t, 200, resp.StatusCode, "Status Code Error")
+	assertEqual(t, 200, resp.StatusCode, "Status Code Error")
 	body := ReadBodyString(resp)
-	AssertEqual(t, "Hello World", body, "Body not correct")
+	assertEqual(t, "Hello World", body, "Body not correct")
 
 	resp = processRequest(r, "HEAD", "/hello")
-	AssertEqual(t, 404, resp.StatusCode, "Status Code Error")
+	assertEqual(t, 404, resp.StatusCode, "Status Code Error")
 }
 
 func TestUseMiddlewareTransferObject(t *testing.T) {
@@ -42,11 +42,11 @@ func TestUseMiddlewareTransferObject(t *testing.T) {
 	})
 	r.Get("/hello", func(c *Context) {
 		val, _ := c.Get("test")
-		AssertEqual(t, "Test", val.(string))
+		assertEqual(t, "Test", val.(string))
 		c.String(200, "OK")
 	})
 	resp := processRequest(r, "GET", "/hello")
-	AssertEqual(t, 200, resp.StatusCode, "Status Code Error")
+	assertEqual(t, 200, resp.StatusCode, "Status Code Error")
 }
 
 func TestUseMiddlewareAbort(t *testing.T) {
@@ -59,6 +59,54 @@ func TestUseMiddlewareAbort(t *testing.T) {
 		c.String(200, "OK")
 	})
 	resp := processRequest(r, "GET", "/")
-	AssertEqual(t, 302, resp.StatusCode, "Status Code Error")
-	AssertEqual(t, "/login", resp.Header.Get("Location"), "Location header error")
+	assertEqual(t, 302, resp.StatusCode, "Status Code Error")
+	assertEqual(t, "/login", resp.Header.Get("Location"), "Location header error")
+}
+
+func TestUseMiddlewareWithNext(t *testing.T) {
+	r := NewRouteGroup()
+	middle1Run := 0
+	middle2Run := 0
+	serveRun := 0
+	r.Use(func(c *Context) {
+		c.Next()
+		middle1Run++
+	})
+	r.Use(func(c *Context) {
+		c.Next()
+		middle2Run++
+	})
+	r.Get("/", func(c *Context) {
+		serveRun++
+		c.String(200, "OK")
+	})
+	resp := processRequest(r, "GET", "/")
+	assertEqual(t, 200, resp.StatusCode, "Status Code Error")
+	assertEqual(t, 1, middle1Run, "Middle 1 run error")
+	assertEqual(t, 1, middle2Run, "Middle 2 run error")
+	assertEqual(t, 1, serveRun, "Serve run error")
+}
+
+func TestUseMiddlewareWithNextInAbort(t *testing.T) {
+	r := NewRouteGroup()
+	middle1Run := 0
+	middle2Run := 0
+	serveRun := 0
+	r.Use(func(c *Context) {
+		c.Next()
+		middle1Run++
+	})
+	r.Use(func(c *Context) {
+		c.Abort()
+		middle2Run++
+	})
+	r.Get("/", func(c *Context) {
+		serveRun++
+		c.String(200, "OK")
+	})
+	resp := processRequest(r, "GET", "/")
+	assertEqual(t, 200, resp.StatusCode, "Status Code Error")
+	assertEqual(t, 1, middle1Run)
+	assertEqual(t, 1, middle2Run)
+	assertEqual(t, 0, serveRun)
 }

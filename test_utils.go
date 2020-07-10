@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func AssertEqual(t *testing.T, expect, value interface{}, msgs ...string) {
+func assertEqual(t *testing.T, expect, value interface{}, msgs ...string) {
 	if !reflect.DeepEqual(expect, value) {
 		msg := strings.TrimSpace(strings.Join(msgs, " "))
 		if msg != "" {
@@ -16,7 +16,7 @@ func AssertEqual(t *testing.T, expect, value interface{}, msgs ...string) {
 	}
 }
 
-func AssertNotEqual(t *testing.T, expect, value interface{}, msgs ...string) {
+func assertNotEqual(t *testing.T, expect, value interface{}, msgs ...string) {
 	if reflect.DeepEqual(expect, value) {
 		msg := strings.TrimSpace(strings.Join(msgs, " "))
 		if msg != "" {
@@ -26,8 +26,8 @@ func AssertNotEqual(t *testing.T, expect, value interface{}, msgs ...string) {
 	}
 }
 
-func AssertTrue(t *testing.T, value bool, msgs ...string) {
-	if value {
+func assertTrue(t *testing.T, value bool, msgs ...string) {
+	if !value {
 		msg := strings.TrimSpace(strings.Join(msgs, " "))
 		if msg != "" {
 			msg += "; "
@@ -36,11 +36,11 @@ func AssertTrue(t *testing.T, value bool, msgs ...string) {
 	}
 }
 
-func AssertFalse(t *testing.T, value bool, msgs ...string) {
-	AssertTrue(t, !value, msgs...)
+func assertFalse(t *testing.T, value bool, msgs ...string) {
+	assertTrue(t, !value, msgs...)
 }
 
-func AssertNil(t *testing.T, value interface{}, msgs ...string) {
+func assertNil(t *testing.T, value interface{}, msgs ...string) {
 	if value != nil {
 		msg := strings.TrimSpace(strings.Join(msgs, " "))
 		if msg != "" {
@@ -50,7 +50,7 @@ func AssertNil(t *testing.T, value interface{}, msgs ...string) {
 	}
 }
 
-func AssertNotNil(t *testing.T, value interface{}, msgs ...string) {
+func assertNotNil(t *testing.T, value interface{}, msgs ...string) {
 	if value == nil {
 		msg := strings.TrimSpace(strings.Join(msgs, " "))
 		if msg != "" {
