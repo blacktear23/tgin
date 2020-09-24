@@ -63,9 +63,9 @@ go build -trimpath -ldflags "-s -w"
 
 Compiled binary size:
 
-| Package | Binary Size (byte) | Reduce Ratio |
-| ------- | ------------------ | ------------ |
-| gin     | 11863092 Byte      | 0%           |
-| tgin    | 6076500 Byte       | 48%          |
-
-* golang version: 1.14
+| Package | Binary Size (byte) | Reduce Ratio | go version |
+| ------- | ------------------ | ------------ | ---------- |
+| gin     | 11863092 Byte      | 0%           | 1.14       |
+| tgin    | 6076500 Byte       | 48%          | 1.14       |
+| gin     | 11819212 Byte      | 0%           | 1.15       |
+| tgin    | 5186060 Byte       | 56%          | 1.15       |
