@@ -1,6 +1,8 @@
 package tgin
 
 import (
+	"io/ioutil"
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -57,5 +59,21 @@ func assertNotNil(t *testing.T, value interface{}, msgs ...string) {
 			msg += "; "
 		}
 		t.Fatalf("%sExpect not nil but got nil", msg)
+	}
+}
+
+func assertBody(t *testing.T, resp *http.Response, expect string, msgs ...string) {
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Read body got error: %v", err)
+	}
+
+	if string(data) != expect {
+		msg := strings.TrimSpace(strings.Join(msgs, " "))
+		if msg != "" {
+			msg += "; "
+		}
+		t.Fatalf("%sExpect %s but got %s", msg, expect, string(data))
 	}
 }

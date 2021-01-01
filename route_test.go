@@ -28,8 +28,7 @@ func TestGetHandler(t *testing.T) {
 	})
 	resp := processRequest(r, "GET", "/hello")
 	assertEqual(t, 200, resp.StatusCode, "Status Code Error")
-	body := ReadBodyString(resp)
-	assertEqual(t, "Hello World", body, "Body not correct")
+	assertBody(t, resp, "Hello World", "Body not correct")
 
 	resp = processRequest(r, "HEAD", "/hello")
 	assertEqual(t, 404, resp.StatusCode, "Status Code Error")
@@ -119,4 +118,123 @@ func TestUseMiddlewareWithNextInAbort(t *testing.T) {
 	assertEqual(t, 1, middle2Run)
 	assertEqual(t, 0, middle3Run)
 	assertEqual(t, 0, serveRun)
+}
+
+func TestSamePathWithDifferentMethodHandlers(t *testing.T) {
+	r := NewRouteGroup()
+	r.Get("/hello", func(c *Context) {
+		c.String(200, "Get Hello World")
+	})
+	r.Post("/hello", func(c *Context) {
+		c.String(200, "Post Hello World")
+	})
+	r.Put("/hello", func(c *Context) {
+		c.String(200, "Put Hello World")
+	})
+
+	resp := processRequest(r, "GET", "/hello")
+	assertEqual(t, 200, resp.StatusCode)
+	assertBody(t, resp, "Get Hello World")
+
+	resp = processRequest(r, "POST", "/hello")
+	assertEqual(t, 200, resp.StatusCode)
+	assertBody(t, resp, "Post Hello World")
+
+	resp = processRequest(r, "PUT", "/hello")
+	assertEqual(t, 200, resp.StatusCode)
+	assertBody(t, resp, "Put Hello World")
+
+	resp = processRequest(r, "DELETE", "/hello")
+	assertEqual(t, 404, resp.StatusCode)
+}
+
+func TestMiddlewareInDifferentGroups(t *testing.T) {
+	r := NewRouteGroup()
+	middle1Run := 0
+	middle2Run := 0
+	r.Use(func(c *Context) {
+		middle1Run++
+	})
+	nr := r.Group("/test")
+	nr.Use(func(c *Context) {
+		middle2Run++
+	})
+
+	r.Get("/hello", func(c *Context) {
+		c.String(200, "Hello World")
+	})
+	nr.Get("/hello", func(c *Context) {
+		c.String(200, "Hello World")
+	})
+
+	resp := processRequest(r, "GET", "/hello")
+	assertEqual(t, 200, resp.StatusCode)
+	assertEqual(t, 1, middle1Run)
+	assertEqual(t, 0, middle2Run)
+
+	resp = processRequest(r, "GET", "/test/hello")
+	assertEqual(t, 200, resp.StatusCode)
+	assertEqual(t, 2, middle1Run)
+	assertEqual(t, 1, middle2Run)
+}
+
+func TestMiddlewareWithAbortBefore404(t *testing.T) {
+	r := NewRouteGroup()
+	middle1Run := 0
+	handlerRun := 0
+	r.Use(func(c *Context) {
+		middle1Run++
+		c.String(500, "Nothing")
+		c.Abort()
+	})
+
+	r.Get("/hello", func(c *Context) {
+		handlerRun++
+		c.String(200, "Hello World")
+	})
+
+	resp := processRequest(r, "PUT", "/hello")
+	assertEqual(t, 500, resp.StatusCode)
+	assertEqual(t, 1, middle1Run)
+	assertEqual(t, 0, handlerRun)
+}
+
+func TestMiddlewareWithAny(t *testing.T) {
+	r := NewRouteGroup()
+	middle1Run := 0
+	handlerRun := 0
+	r.Use(func(c *Context) {
+		middle1Run++
+	})
+
+	r.Any("/hello", func(c *Context) {
+		handlerRun++
+		c.String(200, "Hello World")
+	})
+
+	resp := processRequest(r, "PUT", "/hello")
+	assertEqual(t, 200, resp.StatusCode)
+	assertEqual(t, 1, middle1Run)
+	assertEqual(t, 1, handlerRun)
+}
+
+func TestMiddlewareAbortWithAny(t *testing.T) {
+	r := NewRouteGroup()
+	middle1Run := 0
+	handlerRun := 0
+	r.Use(func(c *Context) {
+		middle1Run++
+		c.String(500, "Nothing")
+		c.Abort()
+	})
+
+	r.Any("/hello", func(c *Context) {
+		handlerRun++
+		c.String(200, "Hello World")
+	})
+
+	resp := processRequest(r, "PUT", "/hello")
+	assertEqual(t, 500, resp.StatusCode)
+	assertEqual(t, 1, middle1Run)
+	assertEqual(t, 0, handlerRun)
 }

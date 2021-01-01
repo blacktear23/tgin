@@ -18,6 +18,7 @@ type Context struct {
 	served      bool
 	values      map[string]interface{}
 	middlewares []RouteHandler
+	handler     RouteHandler
 	index       int
 	mux         *http.ServeMux
 }
@@ -31,6 +32,7 @@ func newContext(w http.ResponseWriter, r *http.Request) *Context {
 		served:      false,
 		index:       0,
 		middlewares: nil,
+		handler:     nil,
 		values:      make(map[string]interface{}),
 	}
 }
@@ -167,15 +169,14 @@ func (c *Context) Next() {
 			m := c.middlewares[c.index]
 			c.index++
 			m(c)
-			if c.aborted || c.served {
+			if c.aborted {
 				break
 			}
 		}
-	} else {
-		// Middleware execute all We should serve it
-		if !c.served {
-			c.served = true
-			c.mux.ServeHTTP(c.Writer, c.Request)
-		}
+	}
+	// Middleware execute all We should serve it
+	if !c.served && !c.aborted {
+		c.served = true
+		c.handler(c)
 	}
 }

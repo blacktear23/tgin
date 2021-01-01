@@ -10,8 +10,11 @@ var (
 
 type RouteHandler func(c *Context)
 
+type handlerFunctions map[string]RouteHandler
+
 type RouteGroup struct {
 	prefix      string
+	handlers    map[string]handlerFunctions
 	mux         *http.ServeMux
 	middlewares []RouteHandler
 }
@@ -21,6 +24,7 @@ func NewRouteGroup() *RouteGroup {
 		prefix:      "",
 		mux:         http.NewServeMux(),
 		middlewares: []RouteHandler{},
+		handlers:    map[string]handlerFunctions{},
 	}
 }
 
@@ -34,12 +38,8 @@ func (rg *RouteGroup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := newContext(ww, r)
 	ww.ctx = ctx
-	ctx.middlewares = rg.middlewares
 	ctx.mux = rg.mux
-	ctx.Next()
-	if !ctx.aborted && !ctx.served {
-		rg.mux.ServeHTTP(ww, r)
-	}
+	rg.mux.ServeHTTP(ww, r)
 }
 
 func (rg *RouteGroup) getPath(path string) string {
@@ -56,27 +56,54 @@ func (rg *RouteGroup) getContext(w http.ResponseWriter, r *http.Request) *Contex
 }
 
 func (rg *RouteGroup) handle(method, path string, handler RouteHandler) {
-	rg.mux.HandleFunc(rg.getPath(path), func(w http.ResponseWriter, r *http.Request) {
-		ctx := rg.getContext(w, r)
-		if method != ctx.Method {
-			ctx.Text(404, "404 page not found\n")
-			return
-		}
-		handler(ctx)
-	})
+	fullPath := rg.getPath(path)
+	hfs, have := rg.handlers[fullPath]
+	if have {
+		hfs[method] = handler
+	} else {
+		nhfs := handlerFunctions{}
+		nhfs[method] = handler
+		rg.handlers[fullPath] = nhfs
+		rg.mux.HandleFunc(fullPath, func(w http.ResponseWriter, r *http.Request) {
+			ctx := rg.getContext(w, r)
+			ctx.middlewares = rg.middlewares
+			ctx.handler = func(c *Context) {
+				lhfs, have := rg.handlers[fullPath]
+				if !have {
+					ctx.Text(404, "404 page not found\n")
+					return
+				}
+				hdl, have := lhfs[ctx.Method]
+				if !have {
+					ctx.Text(404, "404 page not found\n")
+					return
+				}
+				hdl(c)
+			}
+			ctx.Next()
+		})
+	}
 }
 
 func (rg *RouteGroup) Group(prefix string) *RouteGroup {
+	newMiddlewares := make([]RouteHandler, len(rg.middlewares))
+	for i, m := range rg.middlewares {
+		newMiddlewares[i] = m
+	}
 	return &RouteGroup{
-		prefix: rg.getPath(prefix),
-		mux:    rg.mux,
+		prefix:      rg.getPath(prefix),
+		mux:         rg.mux,
+		middlewares: newMiddlewares,
+		handlers:    map[string]handlerFunctions{},
 	}
 }
 
 func (rg *RouteGroup) Any(path string, handler RouteHandler) {
 	rg.mux.HandleFunc(rg.getPath(path), func(w http.ResponseWriter, r *http.Request) {
 		ctx := rg.getContext(w, r)
-		handler(ctx)
+		ctx.middlewares = rg.middlewares
+		ctx.handler = handler
+		ctx.Next()
 	})
 }
 
