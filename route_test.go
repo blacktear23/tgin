@@ -238,3 +238,48 @@ func TestMiddlewareAbortWithAny(t *testing.T) {
 	assertEqual(t, 1, middle1Run)
 	assertEqual(t, 0, handlerRun)
 }
+
+func TestRecoveryMiddleware(t *testing.T) {
+	r := NewRouteGroup()
+	middle1Run := 0
+	r.Use(RecoveryMiddleware)
+	r.Use(func(c *Context) {
+		middle1Run++
+	})
+	r.Get("/", func(c *Context) {
+		panic("this is a test panic")
+	})
+
+	resp := processRequest(r, "GET", "/")
+	assertEqual(t, 500, resp.StatusCode)
+}
+
+func TestRecoveryMiddlewareWithPanicInMiddleware(t *testing.T) {
+	r := NewRouteGroup()
+	middle1Run := 0
+	middle2Run := 0
+	middle3Run := 0
+	handlerRun := 0
+	r.Use(RecoveryMiddleware)
+	r.Use(func(c *Context) {
+		middle1Run++
+	})
+	r.Use(func(c *Context) {
+		middle2Run++
+		panic("this is a test panic from middleware")
+	})
+	r.Use(func(c *Context) {
+		middle3Run++
+	})
+	r.Get("/", func(c *Context) {
+		handlerRun++
+		c.String(200, "Hello")
+	})
+
+	resp := processRequest(r, "GET", "/")
+	assertEqual(t, 500, resp.StatusCode)
+	assertEqual(t, 1, middle1Run)
+	assertEqual(t, 1, middle2Run)
+	assertEqual(t, 0, middle3Run)
+	assertEqual(t, 0, handlerRun)
+}
