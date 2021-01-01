@@ -176,7 +176,9 @@ func (c *Context) Next() {
 	}
 	// Middleware execute all We should serve it
 	if !c.served && !c.aborted {
-		c.served = true
-		c.handler(c)
+		if c.handler != nil {
+			c.served = true
+			c.handler(c)
+		}
 	}
 }

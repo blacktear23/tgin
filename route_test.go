@@ -283,3 +283,16 @@ func TestRecoveryMiddlewareWithPanicInMiddleware(t *testing.T) {
 	assertEqual(t, 0, middle3Run)
 	assertEqual(t, 0, handlerRun)
 }
+
+func TestStaticFileMiddleware(t *testing.T) {
+	r := NewRouteGroup()
+	r.UseGlobal(StaticFileMiddleware("/", "/tmp", true))
+	r.Get("/hello", func(c *Context) {
+		c.String(200, "Hello world")
+	})
+	resp := processRequest(r, "GET", "/")
+	assertEqual(t, 200, resp.StatusCode)
+	resp = processRequest(r, "GET", "/hello")
+	assertEqual(t, 200, resp.StatusCode)
+	assertBody(t, resp, "Hello world")
+}

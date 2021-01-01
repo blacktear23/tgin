@@ -1,6 +1,7 @@
 package tgin
 
 import (
+	"log"
 	"net/http"
 )
 
@@ -13,18 +14,20 @@ type RouteHandler func(c *Context)
 type handlerFunctions map[string]RouteHandler
 
 type RouteGroup struct {
-	prefix      string
-	handlers    map[string]handlerFunctions
-	mux         *http.ServeMux
-	middlewares []RouteHandler
+	prefix            string
+	handlers          map[string]handlerFunctions
+	mux               *http.ServeMux
+	middlewares       []RouteHandler
+	globalMiddlewares []RouteHandler
 }
 
 func NewRouteGroup() *RouteGroup {
 	return &RouteGroup{
-		prefix:      "",
-		mux:         http.NewServeMux(),
-		middlewares: []RouteHandler{},
-		handlers:    map[string]handlerFunctions{},
+		prefix:            "",
+		mux:               http.NewServeMux(),
+		middlewares:       []RouteHandler{},
+		globalMiddlewares: []RouteHandler{},
+		handlers:          map[string]handlerFunctions{},
 	}
 }
 
@@ -39,7 +42,11 @@ func (rg *RouteGroup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(ww, r)
 	ww.ctx = ctx
 	ctx.mux = rg.mux
-	rg.mux.ServeHTTP(ww, r)
+	ctx.middlewares = rg.globalMiddlewares
+	ctx.Next()
+	if !ctx.aborted && !ctx.served {
+		rg.mux.ServeHTTP(ww, r)
+	}
 }
 
 func (rg *RouteGroup) getPath(path string) string {
@@ -161,6 +168,14 @@ func (rg *RouteGroup) StaticFile(path, filePath string) {
 	}
 	rg.Get(path, handler)
 	rg.Head(path, handler)
+}
+
+func (rg *RouteGroup) UseGlobal(middlewares ...RouteHandler) {
+	if rg.prefix != "" {
+		log.Printf("[Error] Only root RouteGroup can set global middleware, just ignore new middlewares.")
+		return
+	}
+	rg.globalMiddlewares = append(rg.globalMiddlewares, middlewares...)
 }
 
 func (rg *RouteGroup) Use(middlewares ...RouteHandler) {
