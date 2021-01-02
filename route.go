@@ -1,7 +1,6 @@
 package tgin
 
 import (
-	"log"
 	"net/http"
 )
 
@@ -14,20 +13,18 @@ type RouteHandler func(c *Context)
 type handlerFunctions map[string]RouteHandler
 
 type RouteGroup struct {
-	prefix            string
-	handlers          map[string]handlerFunctions
-	mux               *http.ServeMux
-	middlewares       []RouteHandler
-	globalMiddlewares []RouteHandler
+	prefix      string
+	handlers    map[string]handlerFunctions
+	mux         *http.ServeMux
+	middlewares *MiddlewareTree
 }
 
 func NewRouteGroup() *RouteGroup {
 	return &RouteGroup{
-		prefix:            "",
-		mux:               http.NewServeMux(),
-		middlewares:       []RouteHandler{},
-		globalMiddlewares: []RouteHandler{},
-		handlers:          map[string]handlerFunctions{},
+		prefix:      "",
+		mux:         http.NewServeMux(),
+		middlewares: newMiddlewareTree(),
+		handlers:    map[string]handlerFunctions{},
 	}
 }
 
@@ -42,7 +39,7 @@ func (rg *RouteGroup) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := newContext(ww, r)
 	ww.ctx = ctx
 	ctx.mux = rg.mux
-	ctx.middlewares = rg.globalMiddlewares
+	ctx.middlewares = rg.middlewares.BuildMiddlewares(r.URL.Path)
 	ctx.Next()
 	if !ctx.aborted && !ctx.served {
 		rg.mux.ServeHTTP(ww, r)
@@ -73,34 +70,26 @@ func (rg *RouteGroup) handle(method, path string, handler RouteHandler) {
 		rg.handlers[fullPath] = nhfs
 		rg.mux.HandleFunc(fullPath, func(w http.ResponseWriter, r *http.Request) {
 			ctx := rg.getContext(w, r)
-			ctx.middlewares = rg.middlewares
-			ctx.handler = func(c *Context) {
-				lhfs, have := rg.handlers[fullPath]
-				if !have {
-					ctx.Text(404, "404 page not found\n")
-					return
-				}
-				hdl, have := lhfs[ctx.Method]
-				if !have {
-					ctx.Text(404, "404 page not found\n")
-					return
-				}
-				hdl(c)
+			lhfs, have := rg.handlers[fullPath]
+			if !have {
+				ctx.Text(404, "404 page not found\n")
+				return
 			}
-			ctx.Next()
+			hdl, have := lhfs[ctx.Method]
+			if !have {
+				ctx.Text(404, "404 page not found\n")
+				return
+			}
+			hdl(ctx)
 		})
 	}
 }
 
 func (rg *RouteGroup) Group(prefix string) *RouteGroup {
-	newMiddlewares := make([]RouteHandler, len(rg.middlewares))
-	for i, m := range rg.middlewares {
-		newMiddlewares[i] = m
-	}
 	return &RouteGroup{
 		prefix:      rg.getPath(prefix),
 		mux:         rg.mux,
-		middlewares: newMiddlewares,
+		middlewares: rg.middlewares,
 		handlers:    map[string]handlerFunctions{},
 	}
 }
@@ -108,9 +97,7 @@ func (rg *RouteGroup) Group(prefix string) *RouteGroup {
 func (rg *RouteGroup) Any(path string, handler RouteHandler) {
 	rg.mux.HandleFunc(rg.getPath(path), func(w http.ResponseWriter, r *http.Request) {
 		ctx := rg.getContext(w, r)
-		ctx.middlewares = rg.middlewares
-		ctx.handler = handler
-		ctx.Next()
+		handler(ctx)
 	})
 }
 
@@ -170,14 +157,8 @@ func (rg *RouteGroup) StaticFile(path, filePath string) {
 	rg.Head(path, handler)
 }
 
-func (rg *RouteGroup) UseGlobal(middlewares ...RouteHandler) {
-	if rg.prefix != "" {
-		log.Printf("[Error] Only root RouteGroup can set global middleware, just ignore new middlewares.")
-		return
-	}
-	rg.globalMiddlewares = append(rg.globalMiddlewares, middlewares...)
-}
-
 func (rg *RouteGroup) Use(middlewares ...RouteHandler) {
-	rg.middlewares = append(rg.middlewares, middlewares...)
+	for _, middleware := range middlewares {
+		rg.middlewares.Add(rg.prefix, middleware)
+	}
 }

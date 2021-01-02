@@ -286,7 +286,7 @@ func TestRecoveryMiddlewareWithPanicInMiddleware(t *testing.T) {
 
 func TestStaticFileMiddleware(t *testing.T) {
 	r := NewRouteGroup()
-	r.UseGlobal(StaticFileMiddleware("/", "/tmp", true))
+	r.Use(StaticFileMiddleware("/", "/tmp", true))
 	r.Get("/hello", func(c *Context) {
 		c.String(200, "Hello world")
 	})
